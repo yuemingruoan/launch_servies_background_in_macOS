@@ -1,0 +1,123 @@
+# Chinese translations for launch_server.
+# Copyright (C) 2023 Kilo Code
+# This file is distributed under the same license as the launch_server package.
+# Kilo Code <kilo@code.dev>, 2023.
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: launch_server 1.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2023-10-27 10:00+0000\n"
+"PO-Revision-Date: 2023-10-27 10:00+0000\n"
+"Last-Translator: Kilo Code <kilo@code.dev>\n"
+"Language-Team: Chinese (Simplified) <zh_CN@li.org>\n"
+"Language: zh_CN\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=1; plural=0;\n"
+
+msgid "Error: Configuration file not found at {path}"
+msgstr "错误: 在 {path} 未找到配置文件"
+
+msgid "Error: Could not decode JSON from {path}"
+msgstr "错误: 无法解析 {path} 中的 JSON"
+
+msgid "Error: Service '{service_name}' not found in configuration."
+msgstr "错误: 在配置中未找到服务 '{service_name}'"
+
+msgid "Service '{name}' is already running."
+msgstr "服务 '{name}' 已在运行中。"
+
+msgid "Successfully launched service '{name}' with PID {pid}."
+msgstr "成功启动服务 '{name}'，进程号为 {pid}。"
+
+msgid "Error launching service '{name}': {e}"
+msgstr "启动服务 '{name}' 时出错: {e}"
+
+msgid "Service '{service_name}' is not running."
+msgstr "服务 '{service_name}' 未在运行。"
+
+msgid "Stopping service '{service_name}' (PID: {pid})..."
+msgstr "正在停止服务 '{service_name}' (进程号: {pid})..."
+
+msgid "Process {pid} did not terminate gracefully. Sending SIGKILL."
+msgstr "进程 {pid} 未正常终止。正在发送 SIGKILL 信号。"
+
+msgid "Error stopping service '{service_name}': {e}"
+msgstr "停止服务 '{service_name}' 时出错: {e}"
+
+msgid "Service '{service_name}' stopped."
+msgstr "服务 '{service_name}' 已停止。"
+
+msgid "Starting all enabled services..."
+msgstr "正在启动所有已启用的服务..."
+
+msgid "SERVICE NAME"
+msgstr "服务名称"
+
+msgid "ENABLED"
+msgstr "是否启用"
+
+msgid "STATUS"
+msgstr "状态"
+
+msgid "yes"
+msgstr "是"
+
+msgid "no"
+msgstr "否"
+
+msgid "running"
+msgstr "运行中"
+
+msgid "stopped"
+msgstr "已停止"
+
+msgid "Service '{service_name}' is already {status_text}."
+msgstr "服务 '{service_name}' 已处于 {status_text} 状态。"
+
+msgid "enabled"
+msgstr "启用"
+
+msgid "disabled"
+msgstr "禁用"
+
+msgid "Service '{service_name}' has been {status_text} in the configuration."
+msgstr "服务 '{service_name}' 的配置已被{status_text}。"
+
+msgid "A tool to manage background services on macOS."
+msgstr "一个用于管理 macOS 后台服务的工具。"
+
+msgid "Available commands"
+msgstr "可用命令"
+
+msgid "Start all enabled services (default action for launchd)."
+msgstr "启动所有已启用的服务 (launchd 的默认操作)。"
+
+msgid "Stop a running service (temporary)."
+msgstr "停止一个正在运行的服务 (临时)。"
+
+msgid "The name of the service to stop."
+msgstr "要停止的服务名称。"
+
+msgid "Restart a service."
+msgstr "重启一个服务。"
+
+msgid "The name of the service to restart."
+msgstr "要重启的服务名称。"
+
+msgid "Show the status of all configured services."
+msgstr "显示所有已配置服务的状态。"
+
+msgid "Enable a service in the configuration file."
+msgstr "在配置文件中启用一个服务。"
+
+msgid "The name of the service to enable."
+msgstr "要启用的服务名称。"
+
+msgid "Stop and disable a service in the configuration file (permanent)."
+msgstr "停止并在配置文件中禁用一个服务 (永久)。"
+
+msgid "The name of the service to disable."
+msgstr "要禁用的服务名称。"
