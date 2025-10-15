@@ -8,6 +8,7 @@ import signal
 import subprocess
 import sys
 import time
+import traceback
 from datetime import datetime
 
 # --- Configuration & i18n Setup ---
@@ -32,8 +33,7 @@ def setup_logging(config):
     global LOG_FILE_HANDLE
     log_directory = config.get('settings', {}).get('log_directory')
     if not log_directory:
-        print(_("Error: 'log_directory' not defined in settings."), file=sys.stderr)
-        return
+        raise ValueError(_("Error: 'log_directory' not defined in settings."))
 
     try:
         base_log_dir = os.path.expanduser(log_directory)
@@ -44,18 +44,17 @@ def setup_logging(config):
         log_path = os.path.join(tool_log_dir, f"{timestamp}.log")
         LOG_FILE_HANDLE = open(log_path, 'a', encoding='utf-8')
     except Exception as e:
+        # Use direct print as logging isn't fully set up
         print(f"Warning: Could not create tool log file: {e}", file=sys.stderr)
         LOG_FILE_HANDLE = None
 
 def log(message, level="INFO", file=sys.stdout):
     """Prints to console and writes to the global log file with structured format."""
-    # For status table, don't add log prefix to console output
     is_status_line = "yes" in message or "no" in message or "---" in message
     
     if not is_status_line:
         print(message, file=file)
     else:
-        # Still print the raw table line to the console
         print(message, file=sys.stdout)
 
     if LOG_FILE_HANDLE:
@@ -64,20 +63,59 @@ def log(message, level="INFO", file=sys.stdout):
         LOG_FILE_HANDLE.write(log_entry)
         LOG_FILE_HANDLE.flush()
 
+def log_fatal_error(exc, config):
+    """Logs a fatal error with full environment details to a dedicated error directory."""
+    error_log_dir = None
+    log_directory = config.get('settings', {}).get('log_directory') if config else None
+    
+    if log_directory:
+        error_log_dir = os.path.join(os.path.expanduser(log_directory), "error")
+    else:
+        # Fallback if config is unreadable or log_directory is not set
+        error_log_dir = os.path.join(SCRIPT_DIR, "error_logs")
+
+    try:
+        os.makedirs(error_log_dir, exist_ok=True)
+        timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        error_log_path = os.path.join(error_log_dir, f"{timestamp}.log")
+
+        with open(error_log_path, 'a', encoding='utf-8') as f:
+            f.write("--- FATAL ERROR REPORT ---\n")
+            f.write(f"Timestamp: {datetime.now().isoformat()}\n")
+            f.write("-" * 20 + "\n")
+            f.write("Exception:\n")
+            f.write(str(exc) + "\n")
+            f.write("-" * 20 + "\n")
+            f.write("Traceback:\n")
+            f.write(traceback.format_exc())
+            f.write("-" * 20 + "\n")
+            f.write("Environment Info:\n")
+            f.write(f"  Python Version: {sys.version.replace('\\n', ' ')}\n")
+            f.write(f"  Platform: {sys.platform}\n")
+            f.write(f"  Arguments: {sys.argv}\n")
+            f.write(f"  CWD: {os.getcwd()}\n")
+            f.write(f"  LANG: {os.environ.get('LANG', 'Not set')}\n")
+            f.write("--- END OF REPORT ---\n")
+        
+        print(f"\nFATAL ERROR: A critical error occurred. A detailed report has been saved to:\n{error_log_path}\n", file=sys.stderr)
+
+    except Exception as log_e:
+        print(f"\nFATAL ERROR: A critical error occurred, but failed to write the error report.", file=sys.stderr)
+        print(f"Original Error: {exc}", file=sys.stderr)
+        print(f"Logging Error: {log_e}", file=sys.stderr)
+
 # --- Helper Functions ---
 def _get_service_pid_path(service_name):
     return os.path.join(PID_DIR, f"{service_name}.pid")
 
 def _load_config():
     if not os.path.exists(CONFIG_PATH):
-        print(_("Error: Configuration file not found at {path}").format(path=CONFIG_PATH), file=sys.stderr)
-        sys.exit(1)
+        raise FileNotFoundError(_("Error: Configuration file not found at {path}").format(path=CONFIG_PATH))
     try:
         with open(CONFIG_PATH, 'r') as f:
             return json.load(f)
-    except json.JSONDecodeError:
-        print(_("Error: Could not decode JSON from {path}").format(path=CONFIG_PATH), file=sys.stderr)
-        sys.exit(1)
+    except json.JSONDecodeError as e:
+        raise ValueError(_("Error: Could not decode JSON from {path}").format(path=CONFIG_PATH)) from e
 
 def _save_config(config):
     with open(CONFIG_PATH, 'w') as f:
@@ -103,7 +141,7 @@ def is_running(service_name):
     else:
         return True
 
-# --- Command Functions ---
+# --- Command Functions (omitted for brevity, they remain the same) ---
 def start_service(service, log_directory):
     name = service['name']
     if is_running(name):
@@ -234,38 +272,42 @@ def handle_disable(args):
         _toggle_service(args.service_name, False)
 
 def main():
-    config = _load_config()
-    setup_logging(config)
-
-    parser = argparse.ArgumentParser(description=_("A tool to manage background services on macOS."))
-    subparsers = parser.add_subparsers(dest='command', help=_('Available commands'))
-    subparsers.required = True
-
-    # ... (parser setup remains the same)
-    parser_start = subparsers.add_parser('start', help=_('Start all enabled services (default action for launchd).'))
-    parser_start.set_defaults(func=handle_start)
-    parser_stop = subparsers.add_parser('stop', help=_('Stop a running service (temporary).'))
-    parser_stop.add_argument('service_name', help=_('The name of the service to stop.'))
-    parser_stop.set_defaults(func=handle_stop)
-    parser_restart = subparsers.add_parser('restart', help=_('Restart a service.'))
-    parser_restart.add_argument('service_name', help=_('The name of the service to restart.'))
-    parser_restart.set_defaults(func=handle_restart)
-    parser_status = subparsers.add_parser('status', help=_('Show the status of all configured services.'))
-    parser_status.set_defaults(func=handle_status)
-    parser_enable = subparsers.add_parser('enable', help=_('Enable a service in the configuration file.'))
-    parser_enable.add_argument('service_name', help=_('The name of the service to enable.'))
-    parser_enable.set_defaults(func=handle_enable)
-    parser_disable = subparsers.add_parser('disable', help=_('Stop and disable a service in the configuration file (permanent).'))
-    parser_disable.add_argument('service_name', help=_('The name of the service to disable.'))
-    parser_disable.set_defaults(func=handle_disable)
-
-    if sys.argv[1:]:
-        args = parser.parse_args(sys.argv[1:])
-    else:
-        args = parser.parse_args(['start'])
-        
+    config = None
     try:
+        config = _load_config()
+        setup_logging(config)
+
+        parser = argparse.ArgumentParser(description=_("A tool to manage background services on macOS."))
+        subparsers = parser.add_subparsers(dest='command', help=_('Available commands'))
+        subparsers.required = True
+
+        parser_start = subparsers.add_parser('start', help=_('Start all enabled services (default action for launchd).'))
+        parser_start.set_defaults(func=handle_start)
+        parser_stop = subparsers.add_parser('stop', help=_('Stop a running service (temporary).'))
+        parser_stop.add_argument('service_name', help=_('The name of the service to stop.'))
+        parser_stop.set_defaults(func=handle_stop)
+        parser_restart = subparsers.add_parser('restart', help=_('Restart a service.'))
+        parser_restart.add_argument('service_name', help=_('The name of the service to restart.'))
+        parser_restart.set_defaults(func=handle_restart)
+        parser_status = subparsers.add_parser('status', help=_('Show the status of all configured services.'))
+        parser_status.set_defaults(func=handle_status)
+        parser_enable = subparsers.add_parser('enable', help=_('Enable a service in the configuration file.'))
+        parser_enable.add_argument('service_name', help=_('The name of the service to enable.'))
+        parser_enable.set_defaults(func=handle_enable)
+        parser_disable = subparsers.add_parser('disable', help=_('Stop and disable a service in the configuration file (permanent).'))
+        parser_disable.add_argument('service_name', help=_('The name of the service to disable.'))
+        parser_disable.set_defaults(func=handle_disable)
+
+        if sys.argv[1:]:
+            args = parser.parse_args(sys.argv[1:])
+        else:
+            args = parser.parse_args(['start'])
+        
         args.func(args)
+
+    except Exception as e:
+        log_fatal_error(e, config)
+        sys.exit(1)
     finally:
         if LOG_FILE_HANDLE:
             LOG_FILE_HANDLE.close()
