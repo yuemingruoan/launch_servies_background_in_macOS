@@ -47,6 +47,9 @@ fi
 
 # 2. Create symlink in /usr/local/bin
 echo "🔗 Creating command '$SYMLINK_NAME' in $INSTALL_DIR..."
+echo "   This requires administrator privileges to write to a system directory."
+read -p "   Press [Enter] to continue and you may be prompted for your password..."
+
 # Check if /usr/local/bin exists and is writable
 if [ ! -d "$INSTALL_DIR" ]; then
     echo "⚠️ Warning: $INSTALL_DIR does not exist. Attempting to create it..."
@@ -59,8 +62,8 @@ fi
 
 sudo ln -sf "$MANAGER_SCRIPT_PATH" "$INSTALL_DIR/$SYMLINK_NAME"
 if [ $? -ne 0 ]; then
-    echo "❌ Error: Failed to create symlink. You may be prompted for your password."
-    echo "Please ensure you have sudo privileges."
+    echo "❌ Error: Failed to create symlink in '$INSTALL_DIR'."
+    echo "   Please ensure you have administrator privileges and that the directory is writable."
     exit 1
 fi
 echo "✅ Command '$SYMLINK_NAME' created successfully."

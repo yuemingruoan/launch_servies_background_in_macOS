@@ -31,10 +31,12 @@ fi
 # 3. Remove the symlink
 if [ -L "$SYMLINK_PATH" ]; then
     echo "🔗 Removing command '$SYMLINK_NAME' from $INSTALL_DIR..."
+    echo "   This requires administrator privileges to write to a system directory."
+    read -p "   Press [Enter] to continue and you may be prompted for your password..."
     sudo rm -f "$SYMLINK_PATH"
     if [ $? -ne 0 ]; then
-        echo "❌ Error: Failed to remove symlink. You may be prompted for your password."
-        echo "Please ensure you have sudo privileges or remove it manually:"
+        echo "❌ Error: Failed to remove symlink from '$INSTALL_DIR'."
+        echo "   Please ensure you have administrator privileges or remove it manually:"
         echo "   $SYMLINK_PATH"
         exit 1
     fi
