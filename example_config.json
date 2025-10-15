@@ -1,12 +1,38 @@
-[
-  {
-    "name": "Disabled Service Example",
-    "command": "/bin/echo",
-    "args": [
-      "This service should not run"
-    ],
-    "env": {},
-    "log_path": "/Users/shiyu/Documents/Github/launch_servies_background_in_macOS/logs/disabled_service.log",
-    "enabled": false
-  }
-]
+{
+  "settings": {
+    "log_directory": "~/Library/Logs/launch_server"
+  },
+  "services": [
+    {
+      "name": "Simple Python Web Server",
+      "command": "/usr/bin/python3",
+      "args": [
+        "-m",
+        "http.server",
+        "8080"
+      ],
+      "env": {
+        "CUSTOM_VAR": "WebServer"
+      },
+      "enabled": true
+    },
+    {
+      "name": "Continuous Ping Test",
+      "command": "/sbin/ping",
+      "args": [
+        "localhost"
+      ],
+      "env": {},
+      "enabled": true
+    },
+    {
+      "name": "Disabled Service Example",
+      "command": "/bin/echo",
+      "args": [
+        "This service should not run"
+      ],
+      "env": {},
+      "enabled": false
+    }
+  ]
+}

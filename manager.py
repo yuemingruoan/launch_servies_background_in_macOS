@@ -8,6 +8,7 @@ import signal
 import subprocess
 import sys
 import time
+from datetime import datetime
 
 # --- Configuration & i18n Setup ---
 SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -15,24 +16,20 @@ CONFIG_PATH = os.path.join(SCRIPT_DIR, 'config.json')
 PID_DIR = os.path.join(SCRIPT_DIR, 'pids')
 LOCALE_DIR = os.path.join(SCRIPT_DIR, 'locales')
 
-# Set up translation
 try:
     locale.setlocale(locale.LC_ALL, '')
 except locale.Error:
     print("Warning: Could not set locale.", file=sys.stderr)
 
-# Use 'launch_server' as the domain for our translations
 t = gettext.translation('messages', localedir=LOCALE_DIR, fallback=True)
 _ = t.gettext
 
 # --- Helper Functions ---
 
 def _get_service_pid_path(service_name):
-    """Returns the absolute path to a service's PID file."""
     return os.path.join(PID_DIR, f"{service_name}.pid")
 
 def _load_config():
-    """Loads and returns the service configurations from config.json."""
     if not os.path.exists(CONFIG_PATH):
         print(_("Error: Configuration file not found at {path}").format(path=CONFIG_PATH), file=sys.stderr)
         sys.exit(1)
@@ -43,13 +40,11 @@ def _load_config():
         print(_("Error: Could not decode JSON from {path}").format(path=CONFIG_PATH), file=sys.stderr)
         sys.exit(1)
 
-def _save_config(services):
-    """Saves the service configurations back to config.json."""
+def _save_config(config):
     with open(CONFIG_PATH, 'w') as f:
-        json.dump(services, f, indent=2)
+        json.dump(config, f, indent=2)
 
 def _find_service(service_name, services):
-    """Finds a service by name in the configuration list."""
     for service in services:
         if service.get('name') == service_name:
             return service
@@ -57,14 +52,13 @@ def _find_service(service_name, services):
     return None
 
 def is_running(service_name):
-    """Checks if a service is running by checking its PID file and process status."""
     pid_path = _get_service_pid_path(service_name)
     if not os.path.exists(pid_path):
         return False
     try:
         with open(pid_path, 'r') as f:
             pid = int(f.read().strip())
-        os.kill(pid, 0)  # Check if process exists
+        os.kill(pid, 0)
     except (IOError, ValueError, OSError):
         return False
     else:
@@ -72,21 +66,23 @@ def is_running(service_name):
 
 # --- Command Functions ---
 
-def start_service(service):
-    """Starts a single service and records its PID."""
+def start_service(service, log_directory):
     name = service['name']
     if is_running(name):
         print(_("Service '{name}' is already running.").format(name=name))
         return
 
     command = service.get('command')
-    log_path = service.get('log_path')
-
+    
     try:
-        log_dir = os.path.dirname(log_path)
-        if log_dir:
-            os.makedirs(log_dir, exist_ok=True)
+        # Expand ~ to the user's home directory
+        base_log_dir = os.path.expanduser(log_directory)
+        service_log_dir = os.path.join(base_log_dir, name)
+        os.makedirs(service_log_dir, exist_ok=True)
         
+        timestamp = datetime.now().strftime('%Y-%m-%d_%H-%M-%S')
+        log_path = os.path.join(service_log_dir, f"{timestamp}.log")
+
         process_env = os.environ.copy()
         process_env.update(service.get('env', {}))
         
@@ -109,8 +105,7 @@ def start_service(service):
     except Exception as e:
         print(_("Error launching service '{name}': {e}").format(name=name, e=e), file=sys.stderr)
 
-def stop_service(service_name, services):
-    """Stops a single running service."""
+def stop_service(service_name):
     if not is_running(service_name):
         print(_("Service '{service_name}' is not running.").format(service_name=service_name))
         return
@@ -137,32 +132,39 @@ def stop_service(service_name, services):
         print(_("Service '{service_name}' stopped.").format(service_name=service_name))
 
 def handle_start(args):
-    """Handler for the 'start' command."""
     print(_("Starting all enabled services..."))
-    services = _load_config()
-    for service in services:
+    config = _load_config()
+    log_directory = config.get('settings', {}).get('log_directory')
+    if not log_directory:
+        print(_("Error: 'log_directory' not defined in settings."), file=sys.stderr)
+        sys.exit(1)
+
+    for service in config.get('services', []):
         if service.get('enabled', False):
-            start_service(service)
+            start_service(service, log_directory)
 
 def handle_stop(args):
-    """Handler for the 'stop' command."""
-    services = _load_config()
-    service = _find_service(args.service_name, services)
+    config = _load_config()
+    service = _find_service(args.service_name, config.get('services', []))
     if service:
-        stop_service(service['name'], services)
+        stop_service(service['name'])
 
 def handle_restart(args):
-    """Handler for the 'restart' command."""
-    services = _load_config()
-    service = _find_service(args.service_name, services)
+    config = _load_config()
+    log_directory = config.get('settings', {}).get('log_directory')
+    if not log_directory:
+        print(_("Error: 'log_directory' not defined in settings."), file=sys.stderr)
+        sys.exit(1)
+
+    service = _find_service(args.service_name, config.get('services', []))
     if service:
-        stop_service(service['name'], services)
+        stop_service(service['name'])
         time.sleep(0.5)
-        start_service(service)
+        start_service(service, log_directory)
 
 def handle_status(args):
-    """Handler for the 'status' command."""
-    services = _load_config()
+    config = _load_config()
+    services = config.get('services', [])
     print(f"{_('SERVICE NAME'):<30} {_('ENABLED'):<10} {_('STATUS'):<10}")
     print("-" * 50)
     for service in services:
@@ -172,8 +174,8 @@ def handle_status(args):
         print(f"{name:<30} {enabled:<10} {status:<10}")
 
 def _toggle_service(service_name, enabled_status):
-    """Helper to enable or disable a service in the config."""
-    services = _load_config()
+    config = _load_config()
+    services = config.get('services', [])
     service = _find_service(service_name, services)
     if service:
         if service.get('enabled') == enabled_status:
@@ -182,27 +184,24 @@ def _toggle_service(service_name, enabled_status):
             return
         
         service['enabled'] = enabled_status
-        _save_config(services)
+        _save_config(config)
         status_text = _("Enabled") if enabled_status else _("Disabled")
         print(_("Service '{service_name}' has been {status_text} in the configuration.").format(service_name=service_name, status_text=status_text.lower()))
         return True
     return False
 
 def handle_enable(args):
-    """Handler for the 'enable' command."""
     _toggle_service(args.service_name, True)
 
 def handle_disable(args):
-    """Handler for the 'disable' command."""
-    services = _load_config()
-    service = _find_service(args.service_name, services)
+    config = _load_config()
+    service = _find_service(args.service_name, config.get('services', []))
     if service:
         if is_running(service['name']):
-            stop_service(service['name'], services)
+            stop_service(service['name'])
         _toggle_service(args.service_name, False)
 
 def main():
-    """Main function to parse arguments and dispatch commands."""
     parser = argparse.ArgumentParser(description=_("A tool to manage background services on macOS."))
     subparsers = parser.add_subparsers(dest='command', help=_('Available commands'))
     subparsers.required = True

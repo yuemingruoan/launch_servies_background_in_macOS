@@ -36,20 +36,15 @@ FINAL_PLIST_PATH="$LAUNCH_AGENTS_DIR/$PLIST_NAME"
 CONFIG_PATH="$SCRIPT_DIR/config.json"
 EXAMPLE_CONFIG_PATH="$SCRIPT_DIR/example_config.json"
 
-# 1. Check if config.json is empty or doesn't exist, and offer to populate it.
-if [ ! -f "$CONFIG_PATH" ] || [ ! -s "$CONFIG_PATH" ] || [ "$(cat "$CONFIG_PATH" | tr -d '[:space:]')" = "[]" ]; then
-    echo "ℹ️  Your 'config.json' is empty or missing."
-    read -p "   Would you like to populate it with the example configuration? (Y/n) " -n 1 -r
-    echo
-    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
-        echo "📝 Copying example configuration to config.json..."
-        cp "$EXAMPLE_CONFIG_PATH" "$CONFIG_PATH"
-        if [ $? -ne 0 ]; then
-            echo "⚠️ Warning: Failed to copy example configuration."
-        else
-            echo "✅ 'config.json' has been populated."
-        fi
+# 1. Create config.json from example if it doesn't exist
+if [ ! -f "$CONFIG_PATH" ]; then
+    echo "📝 No 'config.json' found. Creating one from the example..."
+    cp "$EXAMPLE_CONFIG_PATH" "$CONFIG_PATH"
+    if [ $? -ne 0 ]; then
+        echo "❌ Error: Failed to create 'config.json'. Please check permissions."
+        exit 1
     fi
+    echo "✅ 'config.json' created. Please review and edit it for your needs."
     echo
 fi
 

@@ -1,1 +1,18 @@
-[]
+{
+  "settings": {
+    "log_directory": "~/Library/Logs/launch_server"
+  },
+  "services": [
+    {
+      "name": "YOUR_SERVICE_NAME",
+      "command": "THE_COMMAND_TO_RUN_SERVICE",
+      "args": [
+        "THE_PARAMETER_TO_RUN_SERVICE"
+      ],
+      "env": {
+        "THE_ENV_NAME": "THE_ENV_VALUE" 
+      },
+      "enabled": "IF_YOU_WANT_TO_ENABLE_SERVICE"
+    }
+  ]
+}
