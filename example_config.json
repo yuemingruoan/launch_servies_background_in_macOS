@@ -1,29 +1,5 @@
 [
   {
-    "name": "Simple Python Web Server",
-    "command": "/usr/bin/python3",
-    "args": [
-      "-m",
-      "http.server",
-      "8080"
-    ],
-    "env": {
-      "CUSTOM_VAR": "WebServer"
-    },
-    "log_path": "/Users/shiyu/Documents/Github/launch_servies_background_in_macOS/logs/web_server.log",
-    "enabled": true
-  },
-  {
-    "name": "Continuous Ping Test",
-    "command": "/sbin/ping",
-    "args": [
-      "localhost"
-    ],
-    "env": {},
-    "log_path": "/Users/shiyu/Documents/Github/launch_servies_background_in_macOS/logs/ping_test.log",
-    "enabled": true
-  },
-  {
     "name": "Disabled Service Example",
     "command": "/bin/echo",
     "args": [
