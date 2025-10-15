@@ -11,7 +11,7 @@ import time
 import traceback
 from datetime import datetime
 
-# --- Configuration & i18n Setup ---
+# --- Configuration & i18n Setup (omitted for brevity) ---
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 CONFIG_PATH = os.path.join(SCRIPT_DIR, 'config.json')
 PID_DIR = os.path.join(SCRIPT_DIR, 'pids')
@@ -105,12 +105,11 @@ def validate_config(config):
     if not isinstance(config, dict):
         raise ValueError(_("Root object must be a dictionary."))
     
+    # ... (settings and services list checks remain the same)
     if 'settings' not in config or not isinstance(config['settings'], dict):
         raise ValueError(_("'settings' key is missing or not a dictionary."))
-    
     if 'log_directory' not in config['settings']:
         raise ValueError(_("'log_directory' is missing in settings."))
-    
     if 'services' not in config or not isinstance(config['services'], list):
         raise ValueError(_("'services' key is missing or not a list."))
 
@@ -118,16 +117,27 @@ def validate_config(config):
         if not isinstance(service, dict):
             raise ValueError(_("Service at index {index} is not a dictionary.").format(index=i))
         
-        required_keys = ['name', 'command', 'enabled']
+        # NEW: Check for command vs shell_command exclusivity
+        has_command = 'command' in service
+        has_shell_command = 'shell_command' in service
+        
+        if not (has_command ^ has_shell_command): # XOR check
+            raise ValueError(_("Service '{name}' must have either 'command' or 'shell_command', but not both.").format(name=service.get('name', f'at index {i}')))
+
+        required_keys = ['name', 'enabled']
         for key in required_keys:
             if key not in service:
                 raise ValueError(_("Service at index {index} is missing required key: '{key}'.").format(index=i, key=key))
 
         # Type checks
-        str_keys = ['name', 'command']
-        for key in str_keys:
-            if not isinstance(service[key], str):
-                raise ValueError(_("Service '{name}' has a non-string value for key '{key}'.").format(name=service.get('name'), key=key))
+        if has_command and not isinstance(service['command'], str):
+            raise ValueError(_("Service '{name}' has a non-string value for key 'command'.").format(name=service.get('name')))
+        
+        if has_shell_command and not isinstance(service['shell_command'], str):
+             raise ValueError(_("Service '{name}' has a non-string value for key 'shell_command'.").format(name=service.get('name')))
+
+        if not isinstance(service['name'], str):
+            raise ValueError(_("Service '{name}' has a non-string value for key 'name'.").format(name=service.get('name')))
         
         if not isinstance(service['enabled'], bool):
             raise ValueError(_("Service '{name}' has a non-boolean value for key 'enabled'.").format(name=service.get('name')))
@@ -138,7 +148,7 @@ def validate_config(config):
         if 'env' in service and not isinstance(service['env'], dict):
             raise ValueError(_("Service '{name}' has a non-dictionary value for key 'env'.").format(name=service.get('name')))
 
-# --- Helper Functions ---
+# --- Helper Functions (omitted for brevity) ---
 def _get_service_pid_path(service_name):
     return os.path.join(PID_DIR, f"{service_name}.pid")
 
@@ -193,18 +203,15 @@ def check_for_template_config(services):
 
 # --- Command Functions ---
 def handle_check(args):
-    """Handler for the 'check' command. It relies on the auto-check in _load_config."""
+    """Handler for the 'check' command."""
     log(_("Configuration file is valid."))
 
 def start_service(service, log_directory):
-    # ... (implementation remains the same)
     name = service['name']
     if is_running(name):
         log(_("Service '{name}' is already running.").format(name=name), level="WARN")
         return
 
-    command = service.get('command')
-    
     try:
         base_log_dir = os.path.expanduser(log_directory)
         service_log_dir = os.path.join(base_log_dir, name)
@@ -218,13 +225,22 @@ def start_service(service, log_directory):
         
         log_file = open(log_path, 'a', encoding='utf-8')
         
-        proc = subprocess.Popen(
-            [command] + service.get('args', []),
-            stdout=log_file,
-            stderr=log_file,
-            env=process_env,
-            close_fds=True
-        )
+        # NEW: Handle command vs shell_command
+        popen_args = {
+            "stdout": log_file,
+            "stderr": log_file,
+            "env": process_env,
+            "close_fds": True
+        }
+        
+        if 'shell_command' in service:
+            popen_args['shell'] = True
+            command_to_run = service['shell_command']
+        else:
+            popen_args['shell'] = False
+            command_to_run = [service['command']] + service.get('args', [])
+
+        proc = subprocess.Popen(command_to_run, **popen_args)
 
         os.makedirs(PID_DIR, exist_ok=True)
         with open(_get_service_pid_path(name), 'w') as f:
@@ -234,7 +250,6 @@ def start_service(service, log_directory):
 
     except Exception as e:
         log(_("Error launching service '{name}': {e}").format(name=name, e=e), level="ERROR", file=sys.stderr)
-
 
 def stop_service(service_name):
     # ... (implementation remains the same)
@@ -263,7 +278,7 @@ def stop_service(service_name):
             os.remove(pid_path)
         log(_("Service '{service_name}' stopped.").format(service_name=service_name))
 
-
+# ... (other command handlers remain mostly the same)
 def handle_start(args):
     config = _load_config()
     services = config.get('services', [])

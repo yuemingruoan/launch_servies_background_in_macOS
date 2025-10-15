@@ -4,6 +4,12 @@
   },
   "services": [
     {
+      "name": "Qdrant Server",
+      "shell_command": "ulimit -n 99999 && /path/to/your/qdrant",
+      "env": {},
+      "enabled": true
+    },
+    {
       "name": "Simple Python Web Server",
       "command": "/usr/bin/python3",
       "args": [
@@ -14,15 +20,6 @@
       "env": {
         "CUSTOM_VAR": "WebServer"
       },
-      "enabled": true
-    },
-    {
-      "name": "Continuous Ping Test",
-      "command": "/sbin/ping",
-      "args": [
-        "localhost"
-      ],
-      "env": {},
       "enabled": true
     },
     {

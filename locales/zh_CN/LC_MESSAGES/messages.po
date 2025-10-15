@@ -169,3 +169,9 @@ msgstr "尚未配置任何服务。请编辑 'config.json' 文件以添加服务
 
 msgid "It seems you are using the default template. Please edit 'config.json' to configure your own services."
 msgstr "您似乎正在使用默认模板。请编辑 'config.json' 文件来配置您自己的服务。"
+
+msgid "Service '{name}' must have either 'command' or 'shell_command', but not both."
+msgstr "服务 '{name}' 必须且只能拥有 'command' 或 'shell_command' 中的一个。"
+
+msgid "Service '{name}' has a non-string value for key 'shell_command'."
+msgstr "服务 '{name}' 的键 'shell_command' 的值不是一个字符串。"
