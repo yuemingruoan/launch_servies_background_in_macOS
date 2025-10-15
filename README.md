@@ -32,6 +32,15 @@
     - 如果你选择 **是 (Y)**，脚本会自动配置 `launchd` 服务。
     - 如果你选择 **否 (n)**，将跳过自动启动的设置。你之后仍然可以随时通过 `launch_server start` 命令手动启动所有服务。
 
+## 配置文件 (`config.json`)
+
+这是你定义所有后台服务的地方。
+
+- **`config.json`**: 这是你自己的配置文件。默认情况下，它是一个空列表 `[]`。
+- **`example_config.json`**: 这是一个包含详细示例的文件，你可以参考它来了解如何配置不同类型的服务。
+
+在首次运行时，`install.sh` 脚本会检测到 `config.json` 为空，并询问你是否愿意用 `example_config.json` 的内容来填充它，以便快速上手。
+
 ## 如何使用 `launch_server`
 
 安装成功后，你就可以在终端的任何位置使用 `launch_server` 命令了。
@@ -68,9 +77,9 @@
   launch_server enable "Continuous Ping Test"
   ```
 
-## 如何配置 `config.json`
+## 配置服务 (`config.json` 详解)
 
-`config.json` 是一个 JSON 数组，每个对象代表一个服务。
+`config.json` 是一个 JSON 数组，每个对象代表一个服务。请参考 `example_config.json` 获取完整的示例。
 
 | 字段名 | 类型 | 描述 |
 |---|---|---|
@@ -112,7 +121,8 @@ bash uninstall.sh
 ## 文件结构详解
 
 - **`manager.py`**: 工具的核心逻辑，一个可执行的 Python 脚本。
-- **`config.json`**: 你的服务配置文件。
+- **`config.json`**: 你的个人服务配置文件 (默认为空)。
+- **`example_config.json`**: 一个包含详细配置示例的文件。
 - **`install.sh` / `uninstall.sh`**: 自动化安装和卸载脚本。
 - **`com.user.backgroundservices.plist`**: `launchd` 服务的模板文件。
 - **`locales/`**: 存放语言包的目录。

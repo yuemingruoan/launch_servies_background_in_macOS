@@ -33,11 +33,30 @@ MANAGER_SCRIPT_PATH="$SCRIPT_DIR/manager.py"
 LOG_PATH="$SCRIPT_DIR/logs"
 PLIST_TEMPLATE_PATH="$SCRIPT_DIR/$PLIST_NAME"
 FINAL_PLIST_PATH="$LAUNCH_AGENTS_DIR/$PLIST_NAME"
+CONFIG_PATH="$SCRIPT_DIR/config.json"
+EXAMPLE_CONFIG_PATH="$SCRIPT_DIR/example_config.json"
 
-# 1. Compile translations
+# 1. Check if config.json is empty or doesn't exist, and offer to populate it.
+if [ ! -f "$CONFIG_PATH" ] || [ ! -s "$CONFIG_PATH" ] || [ "$(cat "$CONFIG_PATH" | tr -d '[:space:]')" = "[]" ]; then
+    echo "ℹ️  Your 'config.json' is empty or missing."
+    read -p "   Would you like to populate it with the example configuration? (Y/n) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Nn]$ ]]; then
+        echo "📝 Copying example configuration to config.json..."
+        cp "$EXAMPLE_CONFIG_PATH" "$CONFIG_PATH"
+        if [ $? -ne 0 ]; then
+            echo "⚠️ Warning: Failed to copy example configuration."
+        else
+            echo "✅ 'config.json' has been populated."
+        fi
+    fi
+    echo
+fi
+
+# 2. Compile translations
 compile_translations
 
-# 2. Set execute permission for the manager script
+# 3. Set execute permission for the manager script
 echo "🔧 Setting execute permissions for manager.py..."
 chmod +x "$MANAGER_SCRIPT_PATH"
 if [ $? -ne 0 ]; then
@@ -45,7 +64,7 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-# 2. Create symlink in /usr/local/bin
+# 4. Create symlink in /usr/local/bin
 echo "🔗 Creating command '$SYMLINK_NAME' in $INSTALL_DIR..."
 echo "   This requires administrator privileges to write to a system directory."
 read -p "   Press [Enter] to continue and you may be prompted for your password..."
@@ -68,7 +87,7 @@ if [ $? -ne 0 ]; then
 fi
 echo "✅ Command '$SYMLINK_NAME' created successfully."
 
-# 3. Ask user about auto-start
+# 5. Ask user about auto-start
 echo
 read -p "🚀 Do you want to set up services to start automatically on login? (Y/n) " -n 1 -r
 echo # Move to a new line
