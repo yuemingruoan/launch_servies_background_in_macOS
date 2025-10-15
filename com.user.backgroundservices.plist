@@ -15,9 +15,9 @@
     <true/>
 
     <key>StandardOutPath</key>
-    <string>__LOG_PATH__/manager.log</string>
+    <string>__LAUNCHD_LOG_PATH__</string>
 
     <key>StandardErrorPath</key>
-    <string>__LOG_PATH__/manager.error.log</string>
+    <string>__LAUNCHD_LOG_PATH__</string>
 </dict>
 </plist>

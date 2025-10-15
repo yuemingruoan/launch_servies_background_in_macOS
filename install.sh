@@ -169,8 +169,24 @@ else
     fi
 
     echo "$STR_WRITING_PLIST"
+    
+    # Read log_directory from config.json to set launchd log path
+    # NOTE: This is a simple parser. It won't handle complex JSON structures.
+    LOG_DIR_RAW=$(grep '"log_directory"' "$CONFIG_PATH" | cut -d'"' -f 4)
+    if [ -z "$LOG_DIR_RAW" ]; then
+        echo "❌ Error: Could not read 'log_directory' from config.json."
+        exit 1
+    fi
+    
+    # Manually expand ~ since we are in a script
+    LOG_DIR="${LOG_DIR_RAW/#\~/$HOME}"
+    LAUNCHD_LOG_PATH="$LOG_DIR/launch_server/launchd_bootstrap.log"
+    
+    # Ensure the directory for the launchd log exists
+    mkdir -p "$(dirname "$LAUNCHD_LOG_PATH")"
+
     sed -e "s|__MANAGER_SCRIPT_PATH__|$MANAGER_SCRIPT_PATH|g" \
-        -e "s|__LOG_PATH__|$LOG_PATH|g" \
+        -e "s|__LAUNCHD_LOG_PATH__|$LAUNCHD_LOG_PATH|g" \
         "$PLIST_TEMPLATE_PATH" > "$FINAL_PLIST_PATH"
 
     if [ $? -ne 0 ]; then

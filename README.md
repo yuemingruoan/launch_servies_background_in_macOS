@@ -60,12 +60,24 @@
 
 ```
 ~/Library/Logs/launch_server/
+├── launch_server/
+│   ├── 2023-10-27_12-00-00.log  (launch_server 工具自身的日志)
+│   └── launchd_bootstrap.log    (launchd 服务的引导日志)
 ├── Service Name A/
-│   ├── 2023-10-27_10-30-00.log
+│   ├── 2023-10-27_10-30-00.log  (服务 A 的日志)
 │   └── 2023-10-27_11-00-00.log
 └── Service Name B/
-    └── 2023-10-27_10-35-00.log
+    └── 2023-10-27_10-35-00.log  (服务 B 的日志)
 ```
+
+- **服务日志**: 每个服务的所有输出都会被重定向到其名称对应的子目录下的、带时间戳的日志文件中。
+- **工具日志 (`launch_server/`)**:
+  - `launch_server` 命令本身的**所有操作记录**都会被记录在带时间戳的日志文件中，并采用结构化格式，例如：
+    ```
+    [INFO][2023-10-27 12:00:00] Starting all enabled services...
+    [WARN][2023-10-27 12:00:01] Service 'Old Service' is already running.
+    ```
+  - `launchd_bootstrap.log` 用于捕捉 `launchd` 服务在启动 `manager.py` 脚本**之前**可能发生的罕见错误。如果自动启动功能完全失效，请首先检查此文件。
 
 ## 如何使用 `launch_server`
 
