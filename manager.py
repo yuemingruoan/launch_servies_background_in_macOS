@@ -12,7 +12,7 @@ import traceback
 from datetime import datetime
 
 # --- Configuration & i18n Setup ---
-SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 CONFIG_PATH = os.path.join(SCRIPT_DIR, 'config.json')
 PID_DIR = os.path.join(SCRIPT_DIR, 'pids')
 LOCALE_DIR = os.path.join(SCRIPT_DIR, 'locales')
@@ -27,7 +27,7 @@ except locale.Error:
 t = gettext.translation('messages', localedir=LOCALE_DIR, fallback=True)
 _ = t.gettext
 
-# --- Logging Functions ---
+# --- Logging Functions (omitted for brevity) ---
 def setup_logging(config):
     """Sets up the global log file for the tool itself."""
     global LOG_FILE_HANDLE
@@ -44,7 +44,6 @@ def setup_logging(config):
         log_path = os.path.join(tool_log_dir, f"{timestamp}.log")
         LOG_FILE_HANDLE = open(log_path, 'a', encoding='utf-8')
     except Exception as e:
-        # Use direct print as logging isn't fully set up
         print(f"Warning: Could not create tool log file: {e}", file=sys.stderr)
         LOG_FILE_HANDLE = None
 
@@ -64,15 +63,15 @@ def log(message, level="INFO", file=sys.stdout):
         LOG_FILE_HANDLE.flush()
 
 def log_fatal_error(exc, config):
-    """Logs a fatal error with full environment details to a dedicated error directory."""
+    """Logs a fatal error with full environment details."""
+    # ... (implementation remains the same)
     error_log_dir = None
     log_directory = config.get('settings', {}).get('log_directory') if config else None
     
     if log_directory:
         error_log_dir = os.path.join(os.path.expanduser(log_directory), "error")
     else:
-        # Fallback if config is unreadable or log_directory is not set
-        error_log_dir = os.path.join(SCRIPT_DIR, "error_logs")
+        error_log_dir = os.path.join(SCRIPT_DIR, "logs", "error")
 
     try:
         os.makedirs(error_log_dir, exist_ok=True)
@@ -82,12 +81,8 @@ def log_fatal_error(exc, config):
         with open(error_log_path, 'a', encoding='utf-8') as f:
             f.write("--- FATAL ERROR REPORT ---\n")
             f.write(f"Timestamp: {datetime.now().isoformat()}\n")
-            f.write("-" * 20 + "\n")
-            f.write("Exception:\n")
-            f.write(str(exc) + "\n")
-            f.write("-" * 20 + "\n")
-            f.write("Traceback:\n")
-            f.write(traceback.format_exc())
+            f.write(f"Exception: {exc}\n")
+            f.write("Traceback:\n" + traceback.format_exc())
             f.write("-" * 20 + "\n")
             f.write("Environment Info:\n")
             f.write(f"  Python Version: {sys.version.replace('\\n', ' ')}\n")
@@ -95,14 +90,53 @@ def log_fatal_error(exc, config):
             f.write(f"  Arguments: {sys.argv}\n")
             f.write(f"  CWD: {os.getcwd()}\n")
             f.write(f"  LANG: {os.environ.get('LANG', 'Not set')}\n")
+            f.write(f"  SCRIPT_DIR (resolved): {SCRIPT_DIR}\n")
             f.write("--- END OF REPORT ---\n")
         
-        print(f"\nFATAL ERROR: A critical error occurred. A detailed report has been saved to:\n{error_log_path}\n", file=sys.stderr)
+        log(f"A critical error occurred. A detailed report has been saved to: {error_log_path}", level="FATAL", file=sys.stderr)
 
     except Exception as log_e:
-        print(f"\nFATAL ERROR: A critical error occurred, but failed to write the error report.", file=sys.stderr)
-        print(f"Original Error: {exc}", file=sys.stderr)
-        print(f"Logging Error: {log_e}", file=sys.stderr)
+        print(f"\nFATAL ERROR: {exc}\nLogging failed: {log_e}", file=sys.stderr)
+
+
+# --- Configuration Validation ---
+def validate_config(config):
+    """Performs a deep validation of the configuration object."""
+    if not isinstance(config, dict):
+        raise ValueError(_("Root object must be a dictionary."))
+    
+    if 'settings' not in config or not isinstance(config['settings'], dict):
+        raise ValueError(_("'settings' key is missing or not a dictionary."))
+    
+    if 'log_directory' not in config['settings']:
+        raise ValueError(_("'log_directory' is missing in settings."))
+    
+    if 'services' not in config or not isinstance(config['services'], list):
+        raise ValueError(_("'services' key is missing or not a list."))
+
+    for i, service in enumerate(config['services']):
+        if not isinstance(service, dict):
+            raise ValueError(_("Service at index {index} is not a dictionary.").format(index=i))
+        
+        required_keys = ['name', 'command', 'enabled']
+        for key in required_keys:
+            if key not in service:
+                raise ValueError(_("Service at index {index} is missing required key: '{key}'.").format(index=i, key=key))
+
+        # Type checks
+        str_keys = ['name', 'command']
+        for key in str_keys:
+            if not isinstance(service[key], str):
+                raise ValueError(_("Service '{name}' has a non-string value for key '{key}'.").format(name=service.get('name'), key=key))
+        
+        if not isinstance(service['enabled'], bool):
+            raise ValueError(_("Service '{name}' has a non-boolean value for key 'enabled'.").format(name=service.get('name')))
+        
+        if 'args' in service and not isinstance(service['args'], list):
+            raise ValueError(_("Service '{name}' has a non-list value for key 'args'.").format(name=service.get('name')))
+
+        if 'env' in service and not isinstance(service['env'], dict):
+            raise ValueError(_("Service '{name}' has a non-dictionary value for key 'env'.").format(name=service.get('name')))
 
 # --- Helper Functions ---
 def _get_service_pid_path(service_name):
@@ -113,9 +147,13 @@ def _load_config():
         raise FileNotFoundError(_("Error: Configuration file not found at {path}").format(path=CONFIG_PATH))
     try:
         with open(CONFIG_PATH, 'r') as f:
-            return json.load(f)
+            config = json.load(f)
+        validate_config(config)
+        return config
     except json.JSONDecodeError as e:
         raise ValueError(_("Error: Could not decode JSON from {path}").format(path=CONFIG_PATH)) from e
+    except ValueError as e:
+        raise e
 
 def _save_config(config):
     with open(CONFIG_PATH, 'w') as f:
@@ -141,8 +179,25 @@ def is_running(service_name):
     else:
         return True
 
-# --- Command Functions (omitted for brevity, they remain the same) ---
+def check_for_template_config(services):
+    """Checks if the services list contains the default template."""
+    if not services:
+        log(_("No services configured. Please edit your 'config.json' to add services."), level="WARN")
+        return True
+    
+    if len(services) == 1 and services[0].get("name") == "YOUR_SERVICE_NAME":
+        log(_("It seems you are using the default template. Please edit 'config.json' to configure your own services."), level="WARN")
+        return True
+        
+    return False
+
+# --- Command Functions ---
+def handle_check(args):
+    """Handler for the 'check' command. It relies on the auto-check in _load_config."""
+    log(_("Configuration file is valid."))
+
 def start_service(service, log_directory):
+    # ... (implementation remains the same)
     name = service['name']
     if is_running(name):
         log(_("Service '{name}' is already running.").format(name=name), level="WARN")
@@ -180,7 +235,9 @@ def start_service(service, log_directory):
     except Exception as e:
         log(_("Error launching service '{name}': {e}").format(name=name, e=e), level="ERROR", file=sys.stderr)
 
+
 def stop_service(service_name):
+    # ... (implementation remains the same)
     if not is_running(service_name):
         log(_("Service '{service_name}' is not running.").format(service_name=service_name), level="WARN")
         return
@@ -206,15 +263,16 @@ def stop_service(service_name):
             os.remove(pid_path)
         log(_("Service '{service_name}' stopped.").format(service_name=service_name))
 
-def handle_start(args):
-    log(_("Starting all enabled services..."))
-    config = _load_config()
-    log_directory = config.get('settings', {}).get('log_directory')
-    if not log_directory:
-        log(_("Error: 'log_directory' not defined in settings."), level="ERROR", file=sys.stderr)
-        sys.exit(1)
 
-    for service in config.get('services', []):
+def handle_start(args):
+    config = _load_config()
+    services = config.get('services', [])
+    if check_for_template_config(services):
+        return
+
+    log(_("Starting all enabled services..."))
+    log_directory = config.get('settings', {}).get('log_directory')
+    for service in services:
         if service.get('enabled', False):
             start_service(service, log_directory)
 
@@ -224,12 +282,12 @@ def handle_stop(args):
 
 def handle_restart(args):
     config = _load_config()
+    services = config.get('services', [])
+    if check_for_template_config(services):
+        return
+        
     log_directory = config.get('settings', {}).get('log_directory')
-    if not log_directory:
-        log(_("Error: 'log_directory' not defined in settings."), level="ERROR", file=sys.stderr)
-        sys.exit(1)
-
-    service = _find_service(args.service_name, config.get('services', []))
+    service = _find_service(args.service_name, services)
     if service:
         stop_service(service['name'])
         time.sleep(0.5)
@@ -238,6 +296,9 @@ def handle_restart(args):
 def handle_status(args):
     config = _load_config()
     services = config.get('services', [])
+    if check_for_template_config(services):
+        return
+
     log(f"{_('SERVICE NAME'):<30} {_('ENABLED'):<10} {_('STATUS'):<10}")
     log("-" * 50)
     for service in services:
@@ -281,6 +342,7 @@ def main():
         subparsers = parser.add_subparsers(dest='command', help=_('Available commands'))
         subparsers.required = True
 
+        # ... (parser setup)
         parser_start = subparsers.add_parser('start', help=_('Start all enabled services (default action for launchd).'))
         parser_start.set_defaults(func=handle_start)
         parser_stop = subparsers.add_parser('stop', help=_('Stop a running service (temporary).'))
@@ -297,6 +359,8 @@ def main():
         parser_disable = subparsers.add_parser('disable', help=_('Stop and disable a service in the configuration file (permanent).'))
         parser_disable.add_argument('service_name', help=_('The name of the service to disable.'))
         parser_disable.set_defaults(func=handle_disable)
+        parser_check = subparsers.add_parser('check', help=_('Check the configuration file for syntax and schema errors.'))
+        parser_check.set_defaults(func=handle_check)
 
         if sys.argv[1:]:
             args = parser.parse_args(sys.argv[1:])
@@ -305,6 +369,14 @@ def main():
         
         args.func(args)
 
+    except (FileNotFoundError, ValueError) as e:
+        if config:
+            log(_("Configuration check failed."), level="ERROR", file=sys.stderr)
+            log(_("Validation Error: {error}").format(error=e), level="ERROR", file=sys.stderr)
+        else:
+            print(f"ERROR: {e}", file=sys.stderr)
+        log_fatal_error(e, config)
+        sys.exit(1)
     except Exception as e:
         log_fatal_error(e, config)
         sys.exit(1)

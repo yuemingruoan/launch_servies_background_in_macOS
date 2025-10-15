@@ -73,13 +73,34 @@
 - **工具日志 (`launch_server/`)**: 记录 `launch_server` 命令的**所有正常操作**，并采用结构化格式。
 - **致命错误报告 (`error/`)**:
   - 当 `launch_server` 遇到**严重**的、**无法恢复**的错误时（例如，`config.json` 损坏），它会在这里生成一份详细的调试报告。
-  - 这份报告包含完整的错误堆栈、环境信息和上下文，是进行问题排查的最重要依据。
+  - 这份报告包含完整的错误堆栈、环境信息和上下文，是进行问题排查的最重要依据。即使在 `config.json` 无法读取的情况下，备用错误报告也会被尝试写入项目根目录下的 `logs/error/` 文件夹中，以保持结构一致性。
 
 ## 如何使用 `launch_server`
 
 安装成功后，你就可以在终端的任何位置使用 `launch_server` 命令了。
 
-**可用命令:** `start`, `status`, `stop <服务名>`, `restart <服务名>`, `disable <服务名>`, `enable <服务名>`。
+**可用命令:**
+
+- **`launch_server check`**:
+  检查 `config.json` 文件是否存在语法和结构错误。在修改配置文件后，推荐使用此命令进行验证。
+
+- **`launch_server start`**:
+  启动所有已启用的服务。**注意**: 此命令会自动先进行配置检查。如果 `config.json` 仍处于未修改的模板状态，它会给出一个友好的提示。
+
+- **`launch_server status`**:
+  显示所有服务的状态。如果 `config.json` 仍处于未修改的模板状态，它会给出一个友好的提示。
+
+- **`launch_server stop <服务名>`**:
+  临时停止一个服务。
+
+- **`launch_server restart <服务名>`**:
+  重启一个服务。
+
+- **`launch_server disable <服务名>`**:
+  永久禁用一个服务（修改配置文件）。
+
+- **`launch_server enable <服务名>`**:
+  重新启用一个服务（修改配置文件）。
 
 ## 卸载
 

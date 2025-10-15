@@ -121,3 +121,51 @@ msgstr "停止并在配置文件中禁用一个服务 (永久)。"
 
 msgid "The name of the service to disable."
 msgstr "要禁用的服务名称。"
+
+msgid "Check the configuration file for syntax and schema errors."
+msgstr "检查配置文件是否存在语法和结构错误。"
+
+msgid "Configuration file is valid."
+msgstr "配置文件有效。"
+
+msgid "Configuration check failed."
+msgstr "配置文件检查失败。"
+
+msgid "Validation Error: {error}"
+msgstr "验证错误: {error}"
+
+msgid "Root object must be a dictionary."
+msgstr "根对象必须是一个字典。"
+
+msgid "'settings' key is missing or not a dictionary."
+msgstr "'settings' 键缺失或不是一个字典。"
+
+msgid "'log_directory' is missing in settings."
+msgstr "settings 中缺少 'log_directory'。"
+
+msgid "'services' key is missing or not a list."
+msgstr "'services' 键缺失或不是一个列表。"
+
+msgid "Service at index {index} is not a dictionary."
+msgstr "索引为 {index} 的服务不是一个字典。"
+
+msgid "Service at index {index} is missing required key: '{key}'."
+msgstr "索引为 {index} 的服务缺少必需的键: '{key}'。"
+
+msgid "Service '{name}' has a non-string value for key '{key}'."
+msgstr "服务 '{name}' 的键 '{key}' 的值不是一个字符串。"
+
+msgid "Service '{name}' has a non-boolean value for key 'enabled'."
+msgstr "服务 '{name}' 的键 'enabled' 的值不是一个布尔值。"
+
+msgid "Service '{name}' has a non-list value for key 'args'."
+msgstr "服务 '{name}' 的键 'args' 的值不是一个列表。"
+
+msgid "Service '{name}' has a non-dictionary value for key 'env'."
+msgstr "服务 '{name}' 的键 'env' 的值不是一个字典。"
+
+msgid "No services configured. Please edit your 'config.json' to add services."
+msgstr "尚未配置任何服务。请编辑 'config.json' 文件以添加服务。"
+
+msgid "It seems you are using the default template. Please edit 'config.json' to configure your own services."
+msgstr "您似乎正在使用默认模板。请编辑 'config.json' 文件来配置您自己的服务。"
