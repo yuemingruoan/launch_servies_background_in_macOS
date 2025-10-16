@@ -342,9 +342,6 @@ def handle_status(args):
     
     print(header)
     print(separator)
-    if LOG_FILE_HANDLE:
-        log(header, level="INFO")
-        log(separator, level="INFO")
 
     for service in services:
         name = service.get('name', 'Unnamed')
@@ -352,8 +349,6 @@ def handle_status(args):
         status = _("running") if is_running(name) else _("stopped")
         line = f"{name:<30} {enabled:<10} {status:<10}"
         print(line)
-        if LOG_FILE_HANDLE:
-            log(line, level="INFO")
 
 def _toggle_service(service_name, enabled_status):
     config = _load_config()
