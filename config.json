@@ -13,7 +13,7 @@
       "name": "openlist",
       "command": "/Users/shiyu/Documents/launch_server/service/openlist/openlist",
       "args": [
-        "start"
+        "server"
       ],
       "env": {},
       "enabled": true
