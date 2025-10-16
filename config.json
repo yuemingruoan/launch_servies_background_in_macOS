@@ -1,6 +1,6 @@
 {
   "settings": {
-    "log_directory": "~/Library/Logs/launch_server"
+    "log_directory": "/Users/shiyu/Documents/launch_server/logs"
   },
   "services": [
       {

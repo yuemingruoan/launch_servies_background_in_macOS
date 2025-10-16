@@ -226,7 +226,7 @@ def is_running(service_name):
     try:
         with open(pid_path, 'r') as f:
             pid = int(f.read().strip())
-        os.killpg(pid, 0)
+        os.kill(pid, 0)
     except (IOError, ValueError, OSError):
         return False
     else:
