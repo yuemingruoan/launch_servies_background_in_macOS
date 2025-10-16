@@ -6,12 +6,13 @@ import locale
 import os
 import signal
 import subprocess
+import shutil
 import sys
 import time
 import traceback
 from datetime import datetime
 
-# --- Configuration & i18n Setup (omitted for brevity) ---
+# --- Configuration & i18n Setup ---
 SCRIPT_DIR = os.path.dirname(os.path.realpath(__file__))
 CONFIG_PATH = os.path.join(SCRIPT_DIR, 'config.json')
 PID_DIR = os.path.join(SCRIPT_DIR, 'pids')
@@ -19,15 +20,55 @@ LOCALE_DIR = os.path.join(SCRIPT_DIR, 'locales')
 
 LOG_FILE_HANDLE = None
 
+def _check_and_compile_translations():
+    """
+    Checks if .po files are newer than .mo files and recompiles them if necessary.
+    """
+    msgfmt_path = shutil.which('msgfmt')
+    if not msgfmt_path:
+        print("Warning: 'msgfmt' command not found. Cannot auto-compile translations.", file=sys.stderr)
+        print("Please install gettext tools.", file=sys.stderr)
+        return
+
+    for dirpath, _, filenames in os.walk(LOCALE_DIR):
+        for filename in filenames:
+            if filename.endswith('.po'):
+                po_file = os.path.join(dirpath, filename)
+                mo_file = po_file[:-2] + 'mo'
+                
+                po_mtime = os.path.getmtime(po_file)
+                
+                needs_compile = not os.path.exists(mo_file) or po_mtime > os.path.getmtime(mo_file)
+                
+                if needs_compile:
+                    try:
+                        print(f"Compiling {po_file} to {mo_file}...", file=sys.stderr)
+                        subprocess.run([msgfmt_path, '-o', mo_file, po_file], check=True, capture_output=True, text=True)
+                    except subprocess.CalledProcessError as e:
+                        print(f"Error compiling {po_file}: {e.stderr}", file=sys.stderr)
+                    except Exception as e:
+                        print(f"An unexpected error occurred during compilation of {po_file}: {e}", file=sys.stderr)
+
+# --- Robust i18n Setup ---
+_check_and_compile_translations()
+
 try:
     locale.setlocale(locale.LC_ALL, '')
 except locale.Error:
-    print("Warning: Could not set locale.", file=sys.stderr)
+    print("Warning: Could not set locale from environment.", file=sys.stderr)
 
-t = gettext.translation('messages', localedir=LOCALE_DIR, fallback=True)
+# Let gettext handle locale detection from environment variables
+try:
+    # By omitting 'languages', gettext will use environment variables (LANG, LC_MESSAGES)
+    t = gettext.translation('messages', localedir=LOCALE_DIR, fallback=True)
+except FileNotFoundError:
+    # This is a fallback for cases where the 'locales' directory is missing.
+    t = gettext.translation('messages', fallback=True)
+
 _ = t.gettext
 
-# --- Logging Functions (omitted for brevity) ---
+
+# --- Logging Functions ---
 def setup_logging(config):
     """Sets up the global log file for the tool itself."""
     global LOG_FILE_HANDLE
@@ -48,23 +89,19 @@ def setup_logging(config):
         LOG_FILE_HANDLE = None
 
 def log(message, level="INFO", file=sys.stdout):
-    """Prints to console and writes to the global log file with structured format."""
-    is_status_line = "yes" in message or "no" in message or "---" in message
+    """Prints a structured message to console and writes to the global log file."""
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    level_str = _(level.upper())
+    formatted_message = f"[{level_str}][{timestamp}] {message}"
     
-    if not is_status_line:
-        print(message, file=file)
-    else:
-        print(message, file=sys.stdout)
+    print(formatted_message, file=file)
 
     if LOG_FILE_HANDLE:
-        timestamp = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-        log_entry = f"[{level.upper()}][{timestamp}] {message}\n"
-        LOG_FILE_HANDLE.write(log_entry)
+        LOG_FILE_HANDLE.write(formatted_message + "\n")
         LOG_FILE_HANDLE.flush()
 
 def log_fatal_error(exc, config):
     """Logs a fatal error with full environment details."""
-    # ... (implementation remains the same)
     error_log_dir = None
     log_directory = config.get('settings', {}).get('log_directory') if config else None
     
@@ -105,23 +142,30 @@ def validate_config(config):
     if not isinstance(config, dict):
         raise ValueError(_("Root object must be a dictionary."))
     
-    # ... (settings and services list checks remain the same)
     if 'settings' not in config or not isinstance(config['settings'], dict):
         raise ValueError(_("'settings' key is missing or not a dictionary."))
+    
     if 'log_directory' not in config['settings']:
         raise ValueError(_("'log_directory' is missing in settings."))
+    
     if 'services' not in config or not isinstance(config['services'], list):
         raise ValueError(_("'services' key is missing or not a list."))
 
-    for i, service in enumerate(config['services']):
+    services = config['services']
+    if not services:
+        raise ValueError(_("No services configured. Please edit your 'config.json' to add services."))
+    
+    if len(services) == 1 and services[0].get("name") == "YOUR_SERVICE_NAME":
+        raise ValueError(_("It seems you are using the default template. Please edit 'config.json' to configure your own services."))
+
+    for i, service in enumerate(services):
         if not isinstance(service, dict):
             raise ValueError(_("Service at index {index} is not a dictionary.").format(index=i))
         
-        # NEW: Check for command vs shell_command exclusivity
         has_command = 'command' in service
         has_shell_command = 'shell_command' in service
         
-        if not (has_command ^ has_shell_command): # XOR check
+        if not (has_command ^ has_shell_command):
             raise ValueError(_("Service '{name}' must have either 'command' or 'shell_command', but not both.").format(name=service.get('name', f'at index {i}')))
 
         required_keys = ['name', 'enabled']
@@ -129,7 +173,6 @@ def validate_config(config):
             if key not in service:
                 raise ValueError(_("Service at index {index} is missing required key: '{key}'.").format(index=i, key=key))
 
-        # Type checks
         if has_command and not isinstance(service['command'], str):
             raise ValueError(_("Service '{name}' has a non-string value for key 'command'.").format(name=service.get('name')))
         
@@ -148,7 +191,7 @@ def validate_config(config):
         if 'env' in service and not isinstance(service['env'], dict):
             raise ValueError(_("Service '{name}' has a non-dictionary value for key 'env'.").format(name=service.get('name')))
 
-# --- Helper Functions (omitted for brevity) ---
+# --- Helper Functions ---
 def _get_service_pid_path(service_name):
     return os.path.join(PID_DIR, f"{service_name}.pid")
 
@@ -183,23 +226,11 @@ def is_running(service_name):
     try:
         with open(pid_path, 'r') as f:
             pid = int(f.read().strip())
-        os.kill(pid, 0)
+        os.killpg(pid, 0)
     except (IOError, ValueError, OSError):
         return False
     else:
         return True
-
-def check_for_template_config(services):
-    """Checks if the services list contains the default template."""
-    if not services:
-        log(_("No services configured. Please edit your 'config.json' to add services."), level="WARN")
-        return True
-    
-    if len(services) == 1 and services[0].get("name") == "YOUR_SERVICE_NAME":
-        log(_("It seems you are using the default template. Please edit 'config.json' to configure your own services."), level="WARN")
-        return True
-        
-    return False
 
 # --- Command Functions ---
 def handle_check(args):
@@ -225,12 +256,12 @@ def start_service(service, log_directory):
         
         log_file = open(log_path, 'a', encoding='utf-8')
         
-        # NEW: Handle command vs shell_command
         popen_args = {
             "stdout": log_file,
             "stderr": log_file,
             "env": process_env,
-            "close_fds": True
+            "close_fds": True,
+            "preexec_fn": os.setsid
         }
         
         if 'shell_command' in service:
@@ -251,8 +282,8 @@ def start_service(service, log_directory):
     except Exception as e:
         log(_("Error launching service '{name}': {e}").format(name=name, e=e), level="ERROR", file=sys.stderr)
 
+
 def stop_service(service_name):
-    # ... (implementation remains the same)
     if not is_running(service_name):
         log(_("Service '{service_name}' is not running.").format(service_name=service_name), level="WARN")
         return
@@ -263,13 +294,13 @@ def stop_service(service_name):
             pid = int(f.read().strip())
         
         log(_("Stopping service '{service_name}' (PID: {pid})...").format(service_name=service_name, pid=pid))
-        os.kill(pid, signal.SIGTERM)
+        os.killpg(pid, signal.SIGTERM)
         
         time.sleep(1)
         
         if is_running(service_name):
             log(_("Process {pid} did not terminate gracefully. Sending SIGKILL.").format(pid=pid), level="WARN")
-            os.kill(pid, signal.SIGKILL)
+            os.killpg(pid, signal.SIGKILL)
 
     except (IOError, ValueError, OSError) as e:
         log(_("Error stopping service '{service_name}': {e}").format(service_name=service_name, e=e), level="ERROR", file=sys.stderr)
@@ -278,13 +309,11 @@ def stop_service(service_name):
             os.remove(pid_path)
         log(_("Service '{service_name}' stopped.").format(service_name=service_name))
 
-# ... (other command handlers remain mostly the same)
+
 def handle_start(args):
     config = _load_config()
     services = config.get('services', [])
-    if check_for_template_config(services):
-        return
-
+    
     log(_("Starting all enabled services..."))
     log_directory = config.get('settings', {}).get('log_directory')
     for service in services:
@@ -297,12 +326,8 @@ def handle_stop(args):
 
 def handle_restart(args):
     config = _load_config()
-    services = config.get('services', [])
-    if check_for_template_config(services):
-        return
-        
     log_directory = config.get('settings', {}).get('log_directory')
-    service = _find_service(args.service_name, services)
+    service = _find_service(args.service_name, config.get('services', []))
     if service:
         stop_service(service['name'])
         time.sleep(0.5)
@@ -311,16 +336,24 @@ def handle_restart(args):
 def handle_status(args):
     config = _load_config()
     services = config.get('services', [])
-    if check_for_template_config(services):
-        return
 
-    log(f"{_('SERVICE NAME'):<30} {_('ENABLED'):<10} {_('STATUS'):<10}")
-    log("-" * 50)
+    header = f"{_('SERVICE NAME'):<30} {_('ENABLED'):<10} {_('STATUS'):<10}"
+    separator = "-" * 50
+    
+    print(header)
+    print(separator)
+    if LOG_FILE_HANDLE:
+        log(header, level="INFO")
+        log(separator, level="INFO")
+
     for service in services:
         name = service.get('name', 'Unnamed')
         enabled = _("yes") if service.get('enabled', False) else _("no")
         status = _("running") if is_running(name) else _("stopped")
-        log(f"{name:<30} {enabled:<10} {status:<10}")
+        line = f"{name:<30} {enabled:<10} {status:<10}"
+        print(line)
+        if LOG_FILE_HANDLE:
+            log(line, level="INFO")
 
 def _toggle_service(service_name, enabled_status):
     config = _load_config()
@@ -348,6 +381,7 @@ def handle_disable(args):
         _toggle_service(args.service_name, False)
 
 def main():
+    # Note: i18n setup is now done at the top level, before main()
     config = None
     try:
         config = _load_config()
@@ -357,7 +391,6 @@ def main():
         subparsers = parser.add_subparsers(dest='command', help=_('Available commands'))
         subparsers.required = True
 
-        # ... (parser setup)
         parser_start = subparsers.add_parser('start', help=_('Start all enabled services (default action for launchd).'))
         parser_start.set_defaults(func=handle_start)
         parser_stop = subparsers.add_parser('stop', help=_('Stop a running service (temporary).'))
@@ -385,12 +418,7 @@ def main():
         args.func(args)
 
     except (FileNotFoundError, ValueError) as e:
-        if config:
-            log(_("Configuration check failed."), level="ERROR", file=sys.stderr)
-            log(_("Validation Error: {error}").format(error=e), level="ERROR", file=sys.stderr)
-        else:
-            print(f"ERROR: {e}", file=sys.stderr)
-        log_fatal_error(e, config)
+        log(f"{e}", level="ERROR", file=sys.stderr)
         sys.exit(1)
     except Exception as e:
         log_fatal_error(e, config)

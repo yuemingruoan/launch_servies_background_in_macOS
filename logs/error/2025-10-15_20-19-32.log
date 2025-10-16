@@ -1,0 +1,24 @@
+--- FATAL ERROR REPORT ---
+Timestamp: 2025-10-15T20:19:32.602575
+Exception: 服务 'YOUR_SERVICE_NAME' 的键 'enabled' 的值不是一个布尔值。
+Traceback:
+Traceback (most recent call last):
+  File "/usr/local/bin/launch_server", line 353, in main
+    config = _load_config()
+  File "/usr/local/bin/launch_server", line 166, in _load_config
+    raise e
+  File "/usr/local/bin/launch_server", line 161, in _load_config
+    validate_config(config)
+    ~~~~~~~~~~~~~~~^^^^^^^^
+  File "/usr/local/bin/launch_server", line 143, in validate_config
+    raise ValueError(_("Service '{name}' has a non-boolean value for key 'enabled'.").format(name=service.get('name')))
+ValueError: 服务 'YOUR_SERVICE_NAME' 的键 'enabled' 的值不是一个布尔值。
+--------------------
+Environment Info:
+  Python Version: 3.13.7 (main, Aug 14 2025, 11:12:11) [Clang 17.0.0 (clang-1700.3.19.1)]
+  Platform: darwin
+  Arguments: ['/usr/local/bin/launch_server', 'status']
+  CWD: /Users/shiyu/Documents/Github/launch_servies_background_in_macOS
+  LANG: zh_CN.UTF-8
+  SCRIPT_DIR (resolved): /Users/shiyu/Documents/Github/launch_servies_background_in_macOS
+--- END OF REPORT ---

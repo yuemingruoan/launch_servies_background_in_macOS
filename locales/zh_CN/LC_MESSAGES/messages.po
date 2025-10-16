@@ -175,3 +175,6 @@ msgstr "服务 '{name}' 必须且只能拥有 'command' 或 'shell_command' 中�
 
 msgid "Service '{name}' has a non-string value for key 'shell_command'."
 msgstr "服务 '{name}' 的键 'shell_command' 的值不是一个字符串。"
+
+msgid "ERROR"
+msgstr "错误"
